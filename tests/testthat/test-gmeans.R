@@ -14,12 +14,36 @@ test_that("gmeans works", {
   expect_error(gmeans(x, k_max = NA_integer_))
   expect_error(gmeans(x, k_max = 1:10))
   expect_error(gmeans(x, k_max = 1.5))
+  expect_error(gmeans(x, k_init = 3L, k_max = 2L), "k_init <= k_max", fixed = TRUE)
   # level needs to be a number between 0 and 1
   expect_error(gmeans(x, level = NULL))
   expect_error(gmeans(x, level = NA_real_))
   expect_error(gmeans(x, level = 0))
   expect_error(gmeans(x, level = 1))
   expect_error(gmeans(x, level = c(0.5, 0.7)))
+  # x must be numeric and finite
+  expect_error(gmeans(matrix(letters[1:20], ncol = 2L)), "is.numeric", fixed = TRUE)
+  expect_error(gmeans(rbind(x, c(NA, 1))), "is.finite", fixed = TRUE)
+  # x must have at least one row and one column
+  expect_error(gmeans(matrix(numeric(), nrow = 0L, ncol = 2L)), "nrow(x) > 0L", fixed = TRUE)
+  expect_error(gmeans(matrix(numeric(), nrow = 10L, ncol = 0L)), "ncol(x) > 0L", fixed = TRUE)
+  expect_error(gmeans(iris[0L, -5L]), "nrow(x) > 0L", fixed = TRUE)
+})
+
+test_that("gmeans accepts logical input", {
+  withr::local_seed(1234L)
+  x <- matrix(sample(c(TRUE, FALSE), 60L, replace = TRUE), ncol = 2L)
+  expect_s3_class(gmeans(x), "gmeans")
+})
+
+test_that("gmeans errors clearly with too few distinct points", {
+  withr::local_seed(1234L)
+  expect_error(gmeans(matrix(1, nrow = 20L, ncol = 2L)), "distinct data points", fixed = TRUE)
+  expect_error(
+    gmeans(matrix(rnorm(10L), ncol = 2L), k_init = 6L),
+    "distinct data points",
+    fixed = TRUE
+  )
 })
 
 test_that("gmeans works with a single column", {
@@ -28,7 +52,7 @@ test_that("gmeans works with a single column", {
   colnames(x) <- "v"
   cl <- withr::with_seed(1L, gmeans(x))
   expect_s3_class(cl, "gmeans")
-  expect_identical(ncol(cl$centers), 1L)
+  expect_shape(cl$centers, ncol = 1L)
   expect_gt(nrow(cl$centers), 1L)
   expect_identical(colnames(cl$centers), "v")
   expect_identical(cl$centers, withr::with_seed(1L, gmeans(as.data.frame(x)))$centers)
@@ -65,7 +89,7 @@ test_that("kmeans_plusplus works", {
   x <- matrix(rnorm(100L, sd = 0.3), ncol = 2L)
   for (i in 1:5) {
     res <- kmeans_plusplus(x, i)
-    expect_identical(dim(res), c(i, 2L))
+    expect_shape(res, dim = c(i, 2L))
     expect_true(is.matrix(res))
   }
 
@@ -73,7 +97,7 @@ test_that("kmeans_plusplus works", {
   # works when distances are summed over dimensions rather than minimised
   x <- cbind(a = as.numeric(1:20), b = 0)
   res <- kmeans_plusplus(x, 2L)
-  expect_identical(dim(res), c(2L, 2L))
+  expect_shape(res, dim = c(2L, 2L))
   expect_false(anyNA(res))
 })
 
@@ -96,6 +120,39 @@ test_that("predict works", {
   # allow more than required cols
   newdata <- cbind(x, z = 1:50)
   expect_no_error(predict(cl, newdata))
+  # p must be positive
+  expect_error(predict(cl, x, method = "minkowski", p = 0), "p > 0", fixed = TRUE)
+  expect_error(predict(cl, x, method = "minkowski", p = -1), "p > 0", fixed = TRUE)
+  expect_identical(predict(cl, x, method = "minkowski", p = 2), predict(cl, x))
+})
+
+test_that("predict ignores unused non-numeric columns in a data frame", {
+  withr::local_seed(1234L)
+  x <- as.matrix(iris[, -5L])
+  cl <- gmeans(x)
+  expect_identical(predict(cl, iris), predict(cl, x))
+  expect_identical(compute_wss(cl, iris), compute_wss(cl, x))
+  # required columns must still be numeric
+  bad <- iris
+  bad$Sepal.Length <- as.character(bad$Sepal.Length)
+  expect_error(predict(cl, bad), "must be numeric", fixed = TRUE)
+})
+
+test_that("predict rejects newdata that is not a matrix or data frame", {
+  withr::local_seed(1234L)
+  x <- as.matrix(iris[, -5L])
+  cl <- gmeans(x)
+  expect_error(predict(cl, x[1L, ]), "matrix or data frame", fixed = TRUE)
+  expect_error(predict(cl, NULL), "matrix or data frame", fixed = TRUE)
+  expect_error(compute_wss(cl, x[1L, ]), "matrix or data frame", fixed = TRUE)
+})
+
+test_that("predict errors when unnamed centers and newdata dimensions disagree", {
+  withr::local_seed(1234L)
+  km <- kmeans(matrix(rnorm(60L), ncol = 3L), 2L)
+  class(km) <- c("gmeans", class(km))
+  expect_error(predict(km, matrix(rnorm(10L), ncol = 2L)), "number of columns")
+  expect_no_error(predict(km, matrix(rnorm(15L), ncol = 3L)))
 })
 
 test_that("predict breaks ties deterministically", {
@@ -153,5 +210,5 @@ test_that("compute_wss keeps one entry per cluster", {
   expect_length(wss, nrow(km$centers))
   expect_true(any(wss == 0))
   hit <- apply(rxdist(km, mtcars[1:3, ]), 1L, which.min)
-  expect_identical(which(wss > 0), sort(unique(hit)))
+  expect_setequal(which(wss > 0), hit)
 })

@@ -8,21 +8,25 @@ gmeans(x, k_init = 2L, k_max = 10L, level = 0.05, ...)
 }
 \arguments{
 \item{x}{(\code{matrix()})\cr
-Numeric matrix of data, or an object that can be coerced to such a matrix
-(such as a numeric vector or a data frame with all numeric columns).}
+Numeric matrix of data, or a data frame with all numeric columns.
+Logical input is coerced to a 0/1 matrix.
+Missing and infinite values are not allowed and the matrix must have at least
+one row and one column.}
 
 \item{k_init}{(\code{integer(1)})\cr
 Initial amount of centers. Default is \code{2L}.}
 
 \item{k_max}{(\code{integer(1)})\cr
-Maximum amount of centers. Default is \code{10L}.}
+Maximum amount of centers. Must be greater than or equal to \code{k_init}.
+Default is \code{10L}.}
 
 \item{level}{(\code{numeric(1)})\cr
 Significance level for the Anderson-Darling test.
 Default is \code{0.05}. See \code{\link[=ad.test]{ad.test()}} for more information.}
 
 \item{...}{(\code{any})\cr
-Additional arguments passed to \code{\link[stats:kmeans]{stats::kmeans()}}.}
+Additional arguments passed to \code{\link[stats:kmeans]{stats::kmeans()}}.
+\code{nstart} has no effect since the initial centers are always given as a matrix.}
 }
 \value{
 An object of class \code{c("gmeans", "kmeans")}. See \code{\link[stats:kmeans]{stats::kmeans()}} for details.

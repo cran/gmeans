@@ -20,14 +20,15 @@ Adapted from \CRANpkg{clue}
 An object of class \code{"gmeans"}.}
 
 \item{newdata}{(\code{matrix()})\cr
-New data to predict on.}
+New data to predict on, a numeric matrix or a data frame.
+Columns are matched to the centers by name and unused columns are ignored.}
 
 \item{method}{(\code{character(1)})\cr
 Distance metric to use.
 Either \code{"euclidean"}, \code{"manhattan"}, or \code{"minkowski"}. Default is \code{"euclidean"}.}
 
 \item{p}{(\code{numeric(1)})\cr
-Power of the Minkowski distance. Default is \code{2}.}
+Power of the Minkowski distance. Must be positive. Default is \code{2}.}
 
 \item{...}{(\code{any})\cr
 Additional arguments.}

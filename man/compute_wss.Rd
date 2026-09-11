@@ -11,7 +11,8 @@ compute_wss(object, newdata = NULL)
 Class inheriting from \code{"kmeans"}.}
 
 \item{newdata}{(\code{matrix()})\cr
-New data to predict on.}
+New data to predict on, a numeric matrix or a data frame.
+Columns are matched to the centers by name and unused columns are ignored.}
 }
 \value{
 A \code{numeric()} vector with one within-cluster sum of squares per cluster,

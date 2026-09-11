@@ -5,9 +5,11 @@
 
 <!-- badges: start -->
 
-[![Lifecycle:
-experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![R-CMD-check](https://github.com/m-muecke/gmeans/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/m-muecke/gmeans/actions/workflows/R-CMD-check.yaml)
+[![CRAN
+status](https://www.r-pkg.org/badges/version/gmeans)](https://CRAN.R-project.org/package=gmeans)
+[![R-universe
+version](https://m-muecke.r-universe.dev/gmeans/badges/version)](https://m-muecke.r-universe.dev/gmeans)
 <!-- badges: end -->
 
 The aim of the package is to provide an implementation of the G-means
@@ -81,5 +83,8 @@ grid search over `k`.
 
 ## Related work
 
+- [mlr3cluster](https://mlr3cluster.mlr-org.com/): cluster analysis for
+  the mlr3 ecosystem, which provides G-means as the `clust.gmeans`
+  learner.
 - [nortest](https://CRAN.R-project.org/package=nortest): R package for
   testing the composite hypothesis of normality.

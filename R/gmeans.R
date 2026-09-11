@@ -27,17 +27,21 @@
 #' 6. Repeat from step 2 until no more centers are added.
 #'
 #' @param x (`matrix()`)\cr
-#'   Numeric matrix of data, or an object that can be coerced to such a matrix
-#'   (such as a numeric vector or a data frame with all numeric columns).
+#'   Numeric matrix of data, or a data frame with all numeric columns.
+#'   Logical input is coerced to a 0/1 matrix.
+#'   Missing and infinite values are not allowed and the matrix must have at least
+#'   one row and one column.
 #' @param k_init (`integer(1)`)\cr
 #'   Initial amount of centers. Default is `2L`.
 #' @param k_max (`integer(1)`)\cr
-#'   Maximum amount of centers. Default is `10L`.
+#'   Maximum amount of centers. Must be greater than or equal to `k_init`.
+#'   Default is `10L`.
 #' @param level (`numeric(1)`)\cr
 #'   Significance level for the Anderson-Darling test.
 #'   Default is `0.05`. See [ad.test()] for more information.
 #' @param ... (`any`)\cr
 #'   Additional arguments passed to [stats::kmeans()].
+#'   `nstart` has no effect since the initial centers are always given as a matrix.
 #' @references
 #' `r format_bib("hamerly2003learning")`
 #' @returns An object of class `c("gmeans", "kmeans")`. See [stats::kmeans()] for details.
@@ -51,13 +55,21 @@
 #' colnames(x) <- c("x", "y")
 #' cl <- gmeans(x)
 gmeans <- function(x, k_init = 2L, k_max = 10L, level = 0.05, ...) {
-  if (inherits(x, "data.frame")) {
+  if (is.data.frame(x)) {
     x <- as.matrix(x)
+  }
+  if (is.logical(x)) {
+    storage.mode(x) <- "double"
   }
   stopifnot(
     is.matrix(x),
+    is.numeric(x),
+    all(is.finite(x)),
+    nrow(x) > 0L,
+    ncol(x) > 0L,
     is_count(k_init),
     is_count(k_max),
+    k_init <= k_max,
     is_number(level),
     level > 0,
     level < 1
@@ -156,7 +168,11 @@ kmeans_plusplus <- function(x, k) {
     # distance to the nearest chosen center, updated as centers are added
     dists <- colSums((tx - centroids[1L, ])^2)
     for (i in seq_len(k)[-1L]) {
-      prob <- dists / sum(dists)
+      total <- sum(dists)
+      if (total == 0) {
+        stop("more cluster centers than distinct data points", call. = FALSE)
+      }
+      prob <- dists / total
       centroids[i, ] <- x[sample.int(n, 1, prob = prob), ]
       if (i < k) {
         dists <- pmin(dists, colSums((tx - centroids[i, ])^2))
@@ -209,12 +225,13 @@ is_null_hypothesis <- function(data, centers, level = 0.05) {
 #' @param object (`gmeans()`)\cr
 #'   An object of class `"gmeans"`.
 #' @param newdata (`matrix()`)\cr
-#'   New data to predict on.
+#'   New data to predict on, a numeric matrix or a data frame.
+#'   Columns are matched to the centers by name and unused columns are ignored.
 #' @param method (`character(1)`)\cr
 #'   Distance metric to use.
 #'   Either `"euclidean"`, `"manhattan"`, or `"minkowski"`. Default is `"euclidean"`.
 #' @param p (`numeric(1)`)\cr
-#'   Power of the Minkowski distance. Default is `2`.
+#'   Power of the Minkowski distance. Must be positive. Default is `2`.
 #' @param ... (`any`)\cr
 #'   Additional arguments.
 #' @returns An `integer()` vector with one cluster index per row of `newdata`.
@@ -253,7 +270,8 @@ predict.gmeans <- function(
 #' @param object (`any`)\cr
 #'   Class inheriting from `"kmeans"`.
 #' @param newdata (`matrix()`)\cr
-#'   New data to predict on.
+#'   New data to predict on, a numeric matrix or a data frame.
+#'   Columns are matched to the centers by name and unused columns are ignored.
 #' @returns A `numeric()` vector with one within-cluster sum of squares per cluster,
 #'   in the order of the rows of `object$centers`. Clusters with no assigned points
 #'   contribute `0`.
@@ -284,9 +302,9 @@ rxdist <- function(
   method = c("euclidean", "manhattan", "minkowski"),
   p = 2
 ) {
-  stopifnot(is_number(p))
-  if (inherits(newdata, "data.frame")) {
-    newdata <- as.matrix(newdata)
+  stopifnot(is_number(p), p > 0)
+  if (!is.matrix(newdata) && !is.data.frame(newdata)) {
+    stop("`newdata` must be a matrix or data frame", call. = FALSE)
   }
   method <- match.arg(method)
   centers <- object$centers
@@ -298,6 +316,15 @@ rxdist <- function(
   center_nms <- colnames(centers)
   if (!is.null(data_nms) && !is.null(center_nms) && !identical(data_nms, center_nms)) {
     newdata <- newdata[, center_nms, drop = FALSE]
+  }
+  if (is.data.frame(newdata)) {
+    newdata <- as.matrix(newdata)
+  }
+  if (!is.numeric(newdata)) {
+    stop("`newdata` must be numeric", call. = FALSE)
+  }
+  if (ncol(newdata) != ncol(centers)) {
+    stop("`newdata` must have the same number of columns as the centers", call. = FALSE)
   }
   distance <- switch(
     method,
@@ -352,7 +379,7 @@ rxdist <- function(
 #' ad.test(rnorm(100, mean = 5, sd = 3))
 #' ad.test(runif(100, min = 2, max = 4))
 ad.test <- function(x) {
-  stopifnot(is.numeric(x), length(x) > 7L)
+  stopifnot(is.numeric(x))
   dname <- deparse1(substitute(x))
   x <- sort(x[!is.na(x)])
   n <- length(x)
